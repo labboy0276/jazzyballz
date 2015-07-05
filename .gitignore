@@ -1,6 +1,8 @@
 # Ignore paths that contain user-generated content.
 /cache
 /node_modules
+/sites/default/files/.htaccess
+/sites/default/files/advagg_css/*
 
 # Packages #
 ############
