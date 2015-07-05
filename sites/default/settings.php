@@ -585,10 +585,11 @@ $conf['cache_lifetime'] = 0;
 $conf['fetcher_environment'] = 'prod';
 $conf['preprocess_css'] = 1;
 $conf['preprocess_js'] = 1;
-$conf['page_cache_maximum_age'] = 900; //900
+$conf['page_cache_maximum_age'] = 900;
 $conf['cache'] = 1;
 
 $conf['advagg_skip_404_check'] = TRUE;
+$conf['image_resize_filter_threshold'] = 1000;
 
 if ($_SERVER['HTTP_HOST'] == 'jazzyballz.com') {
   header('HTTP/1.0 301 Moved Permanently');
