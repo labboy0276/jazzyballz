@@ -585,7 +585,7 @@ $conf['cache_lifetime'] = 0;
 $conf['fetcher_environment'] = 'prod';
 $conf['preprocess_css'] = 1;
 $conf['preprocess_js'] = 1;
-$conf['page_cache_maximum_age'] = 60; //900
+$conf['page_cache_maximum_age'] = 900; //900
 $conf['cache'] = 1;
 
 $conf['advagg_skip_404_check'] = TRUE;
