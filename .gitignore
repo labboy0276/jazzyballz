@@ -1,3 +1,7 @@
+# Ignore paths that contain user-generated content.
+/cache
+/node_modules
+
 # Packages #
 ############
 *.7z
