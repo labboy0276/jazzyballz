@@ -3,6 +3,7 @@
 /node_modules
 /sites/default/files/.htaccess
 /sites/default/files/advagg_css/*
+/sites/default/files/advagg_js/*
 
 # Packages #
 ############
