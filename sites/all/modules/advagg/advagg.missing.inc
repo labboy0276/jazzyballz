@@ -10,12 +10,12 @@
 /**
  * Menu Callback; generates a missing CSS/JS file.
  */
-function advagg_missing_aggregate() {
+function advagg_missing_aggregate($input = '') {
   // Do not stop processing this request.
   ignore_user_abort(TRUE);
 
   // Generate missing file.
-  $msg = advagg_missing_generate();
+  $msg = advagg_missing_generate($input);
 
   // If here send out fast 404.
   advagg_missing_fast404($msg);
@@ -27,7 +27,7 @@ function advagg_missing_aggregate() {
  * @return string
  *   text if bundle couldn't be generated.
  */
-function advagg_missing_generate() {
+function advagg_missing_generate($input = '') {
   // Make sure we are not in a redirect loop.
   $redirect_counter = isset($_GET['redirect_counter']) ? intval($_GET['redirect_counter']) : 0;
   if ($redirect_counter > 5) {
@@ -44,7 +44,30 @@ function advagg_missing_generate() {
   // Quit ASAP if filename does not match the AdvAgg pattern.
   $data = advagg_get_hashes_from_filename($filename);
   if (is_string($data) || !is_array($data)) {
-    return $data;
+    // Try again with the function input.
+    $filename = $input;
+    $data = advagg_get_hashes_from_filename($filename);
+    if (is_string($data) || !is_array($data)) {
+      return $data;
+    }
+  }
+
+  // Check to see if the file exists.
+  list($css_path, $js_path) = advagg_get_root_files_dir();
+  if ($data[0] === 'css') {
+    $uri = $css_path[0] . '/' . $filename;
+  }
+  elseif ($data[0] === 'js') {
+    $uri = $js_path[0] . '/' . $filename;
+  }
+
+  if (file_exists($uri) && filesize($uri) >= 0) {
+    // File does exist and filesize is bigger than zero, 307 to it.
+    $uri = advagg_generate_location_uri($filename, $data[0], $data[3]);
+    ++$redirect_counter;
+    $uri .= '?redirect_counter=' . $redirect_counter;
+    header('Location: ' . $uri, TRUE, 307);
+    exit();
   }
 
   // Get lock so only one process will do the work.
@@ -89,7 +112,7 @@ function advagg_missing_generate() {
   }
 
   if ($redirect_counter > 4) {
-    watchdog('advagg', 'One of the alter hooks failed when generating this file: %uri. Thus this file was created without any alter hooks.', array('%uri' => $uri), WATCHDOG_CRITICAL);
+    watchdog('advagg', 'One of the alter hooks failed when generating this file: %uri. Thus this file was created without any alter hooks.', array('%uri' => $uri), WATCHDOG_ERROR);
   }
 
   // Output file's contents if creating the file was successful.
@@ -98,7 +121,7 @@ function advagg_missing_generate() {
 }
 
 /**
- * Given the filename, type, & settings, create absolute URL for 307 redirect.
+ * Given the filename, type, and settings, create absolute URL for 307 redirect.
  *
  * Due to url inbound alter we can not trust that the redirect will work if
  * using $GLOBALS['base_path'] . $_GET['q']. Generate the uri as if it was
@@ -203,6 +226,8 @@ function advagg_missing_send_saved_file(array $files_to_save, $uri, $created, $f
     // @ignore druplart_andor_assignment
     if (file_exists($uri) && $filemtime = @filemtime($uri)) {
       header('Last-Modified: ' . gmdate('D, d M Y H:i:s \G\M\T', $filemtime));
+      // Etags generation in php is broken due to millisecond precision for the
+      // files mtime; apache has it, php does not.
     }
 
     if ($type === 'css') {
@@ -299,10 +324,12 @@ function advagg_missing_create_file($filename, $no_alters = FALSE, $data = array
   // Save aggregate file.
   $files_to_save = advagg_save_aggregate($filename, $files, $type, $aggregate_settings);
   // Update atime.
-  advagg_multi_update_atime(array(array(
-    'aggregate_filenames_hash' => $aggregate_filenames_hash,
-    'aggregate_contents_hash' => $aggregate_contents_hash,
-  )));
+  advagg_multi_update_atime(array(
+    array(
+      'aggregate_filenames_hash' => $aggregate_filenames_hash,
+      'aggregate_contents_hash' => $aggregate_contents_hash,
+    ),
+  ));
   // Make sure .htaccess file exists in the advagg dir.
   if (variable_get('advagg_htaccess_check_generate', ADVAGG_HTACCESS_CHECK_GENERATE)) {
     advagg_htaccess_check_generate($files_to_save, $type);
@@ -535,7 +562,14 @@ function advagg_get_css_aggregate_contents(array $files, array $aggregate_settin
     $last_media = NULL;
     $import_statements = array();
     module_load_include('inc', 'advagg', 'advagg');
+    $original_settings = array($optimize, $aggregate_settings);
     foreach ($files as $file => $settings) {
+      list($optimize, $aggregate_settings) = $original_settings;
+      // Allow other modules to modify aggregate_settings optimize.
+      // Call hook_advagg_get_css_file_contents_pre_alter().
+      if (empty($aggregate_settings['settings']['no_alters'])) {
+        drupal_alter('advagg_get_css_file_contents_pre', $file, $optimize, $aggregate_settings);
+      }
       $contents = advagg_load_css_stylesheet($file, $optimize, $aggregate_settings);
 
       // Allow other modules to modify this files contents.
@@ -574,8 +608,6 @@ function advagg_get_css_aggregate_contents(array $files, array $aggregate_settin
             $media_rules = $settings['media'];
             $css_selectors_rules = $css_rules;
           }
-          // Remove the all rule.
-          $media_rules = str_replace('all', '', $media_rules);
           $media_rules = trim($media_rules);
           $css_selectors_rules = trim($css_selectors_rules);
 
@@ -618,7 +650,7 @@ function advagg_get_css_aggregate_contents(array $files, array $aggregate_settin
       $contents = preg_replace($regexp, '', $contents);
       // Add the import statements with the media query of the current file.
       $import_media = isset($settings['media']) ? $settings['media'] : '';
-      $import_media = trim(str_replace('all', '', $import_media));
+      $import_media = trim($import_media);
       $import_statements[] = array($import_media, $matches[0]);
 
       // Close any open comment blocks.
@@ -719,16 +751,27 @@ function advagg_get_js_aggregate_contents(array $files, array $aggregate_setting
  */
 function advagg_save_aggregate($filename, array $files, $type, array $aggregate_settings) {
   list($css_path, $js_path) = advagg_get_root_files_dir();
+  $uri = '';
+  if ($type === 'css') {
+    $uri = $css_path[0] . '/' . $filename;
+  }
+  elseif ($type === 'js') {
+    $uri = $js_path[0] . '/' . $filename;
+  }
+
+  // Allow other modules to alter the location, files included, and settings.
+  if (empty($aggregate_settings['settings']['no_alters'])) {
+    // Call hook_advagg_save_aggregate_pre_alter().
+    drupal_alter('advagg_save_aggregate_pre', $uri, $files, $aggregate_settings);
+  }
 
   // Build the aggregates contents.
   $contents = '';
   if ($type === 'css') {
     $contents = advagg_get_css_aggregate_contents($files, $aggregate_settings);
-    $uri = $css_path[0] . '/' . $filename;
   }
   elseif ($type === 'js') {
     $contents = advagg_get_js_aggregate_contents($files, $aggregate_settings);
-    $uri = $js_path[0] . '/' . $filename;
   }
   if (variable_get('advagg_cache_level', ADVAGG_CACHE_LEVEL) < 0) {
     $contents = "/* This aggregate contains the following files:\n" . implode(",\n", array_keys($files)) . ". */\n\n" . $contents;
