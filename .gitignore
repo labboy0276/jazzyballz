@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Ignore paths that contain user-generated content.
 /cache
 /node_modules
@@ -5,6 +6,8 @@
 /sites/default/files/advagg_css/*
 /sites/default/files/advagg_js/*
 
+=======
+>>>>>>> parent of 4bd50f2... Xmas in July
 # Packages #
 ############
 *.7z
