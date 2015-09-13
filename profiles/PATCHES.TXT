@@ -1,6 +1,0 @@
-Ajax error on nove save (Views Patch)
-Issue:
-https://www.drupal.org/node/1036962
-
-Patch:
-https://www.drupal.org/node/1036962#comment-6665274

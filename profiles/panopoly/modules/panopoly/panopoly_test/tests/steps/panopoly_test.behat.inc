@@ -21,6 +21,13 @@ class TestSubContext extends RawDrupalContext implements DrupalSubContextInterfa
   private $drupal = NULL;
 
   /**
+   * Contains the name of the currently selected iframe.
+   *
+   * @var string
+   */
+  private $iframe = NULL;
+
+  /**
    * An array of Drupal users created by other contexts.
    *
    * @var array
@@ -124,7 +131,7 @@ class TestSubContext extends RawDrupalContext implements DrupalSubContextInterfa
    * @AfterStep
    */
   public function afterStep($event) {
-    if (isset($this->javascript) && $this->javascript) {
+    if (isset($this->javascript) && $this->javascript && empty($this->iframe)) {
       $text = $event->getStep()->getText();
       if (preg_match('/(follow|press|click|submit|viewing|visit|reload|attach)/i', $text)) {
         $this->iWaitForAjax();
@@ -464,6 +471,7 @@ class TestSubContext extends RawDrupalContext implements DrupalSubContextInterfa
    */
   public function iSwitchToTheFrame($frame) {
     $this->getSession()->switchToIFrame($frame);
+    $this->iframe = $frame;
   }
 
   /**
@@ -471,6 +479,7 @@ class TestSubContext extends RawDrupalContext implements DrupalSubContextInterfa
    */
   public function iSwitchOutOfAllFrames() {
     $this->getSession()->switchToIFrame();
+    $this->iframe = NULL;
   }
 
   /**
@@ -742,6 +751,25 @@ class TestSubContext extends RawDrupalContext implements DrupalSubContextInterfa
 
     // Wait for AJAX to finish.
     $this->iWaitForAJAX();
+  }
+
+  /**
+   * @Given :module has the :dependency dependency at position :key
+   */
+  public function moduleHasDependencyAtKey($module, $dependency, $key) {
+    if (!module_exists($module)) {
+      throw new \Exception("$module is not enabled.");
+    }
+    if (!module_exists($dependency)) {
+      throw new \Exception("$dependency is not enabled.");
+    }
+
+    $info = drupal_parse_info_file(drupal_get_path('module', $module) . '/' . $module . '.info');
+
+    if ($info['dependencies'][$key] != $dependency) {
+      throw new \Exception("$module did not have $dependency dependency at $key position");
+    }
+
   }
 
 }

@@ -74,7 +74,7 @@ function advagg_mod_admin_settings_form() {
     '#default_value' => variable_get('advagg_mod_js_adjust_sort_browsers', ADVAGG_MOD_JS_ADJUST_SORT_BROWSERS),
     '#description' => t('This will group all browser conditional JavaScript to be in the lowest group of that conditional rule.'),
   );
-  if (module_exists('googleanalytics') && variable_get('googleanalytics_cache', 0)) {
+  if (module_exists('googleanalytics')) {
     $form['js']['adjust_sort']['expert'] = array(
       '#type' => 'fieldset',
       '#title' => t('Experimental Settings'),
@@ -85,6 +85,12 @@ function advagg_mod_admin_settings_form() {
       '#type' => 'checkbox',
       '#title' => t('Move Google Analytics analytics.js code from inline to be a file'),
       '#default_value' => variable_get('advagg_mod_ga_inline_to_file', ADVAGG_MOD_GA_INLINE_TO_FILE),
+    );
+    $form['js']['adjust_sort']['expert']['advagg_mod_prefetch'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Prefetch stats.g.doubleclick.net/robots.txt'),
+      '#default_value' => variable_get('advagg_mod_prefetch', ADVAGG_MOD_PREFETCH),
+      '#description' => t('Opens a connection to stats.g.doubleclick.net in order to speed up the round trip time.'),
     );
   }
 
@@ -118,6 +124,12 @@ function advagg_mod_admin_settings_form() {
     '#description' => t('This will delay the script execution until the HTML parser has finished. This will have a similar effect to moving all JavaScript to the footer. This might break javascript (especially inline); only use after extensive testing! <a href="@link">More Info</a>', array(
       '@link' => 'http://peter.sh/experiments/asynchronous-and-deferred-javascript-execution-explained/',
     )),
+  );
+  $form['js']['placement']['advagg_mod_js_async_in_header'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Asynchronous JavaScript Execution: Group together in the header'),
+    '#default_value' => variable_get('advagg_mod_js_async_in_header', ADVAGG_MOD_JS_ASYNC_IN_HEADER),
+    '#description' => t('This will move all async JavaScript code to the header in the same group.'),
   );
   $form['js']['placement']['advagg_mod_js_footer_inline_alter'] = array(
     '#type' => 'checkbox',
@@ -186,11 +198,14 @@ function advagg_mod_admin_settings_form() {
     '#default_value' => variable_get('advagg_mod_defer_inline_js_skip_list', ADVAGG_MOD_DEFER_INLINE_JS_SKIP_LIST),
     '#description' => t("If the inline JavaScript matches a given string then the whole inline script will not be wrapped. Enter one per line."),
   );
+  if (!module_exists('jquery_update') || variable_get('jquery_update_jquery_cdn', 'none') === 'none') {
+    $GLOBALS['conf']['advagg_mod_js_defer_jquery'] = FALSE;
+  }
   $form['js']['placement']['expert'] = array(
     '#type' => 'fieldset',
     '#title' => t('Experimental Settings'),
     '#collapsible' => TRUE,
-    '#collapsed' => !variable_get('advagg_mod_js_async', ADVAGG_MOD_JS_ASYNC) && !variable_get('advagg_mod_js_async_in_header', ADVAGG_MOD_JS_ASYNC_IN_HEADER),
+    '#collapsed' => !variable_get('advagg_mod_js_async', ADVAGG_MOD_JS_ASYNC) && !variable_get('advagg_mod_js_defer_jquery', ADVAGG_MOD_JS_DEFER_JQUERY),
   );
   $form['js']['placement']['expert']['advagg_mod_js_async'] = array(
     '#type' => 'checkbox',
@@ -200,12 +215,21 @@ function advagg_mod_admin_settings_form() {
       '@link' => 'http://peter.sh/experiments/asynchronous-and-deferred-javascript-execution-explained/',
     )),
   );
-  $form['js']['placement']['expert']['advagg_mod_js_async_in_header'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Asynchronous JavaScript Execution: Group together in the header'),
-    '#default_value' => variable_get('advagg_mod_js_async_in_header', ADVAGG_MOD_JS_ASYNC_IN_HEADER),
-    '#description' => t('This will move all async JavaScript code to the header in the same group.'),
-  );
+  if (module_exists('jquery_update') && variable_get('jquery_update_jquery_cdn', 'none') !== 'none') {
+    $form['js']['placement']['expert']['advagg_mod_js_defer_jquery'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Defer CDN version of jquery.js from jquery update'),
+      '#default_value' => variable_get('advagg_mod_js_defer_jquery', ADVAGG_MOD_JS_DEFER_JQUERY),
+      '#description' => t('By default the CDN version of jquery is not defered; this allows for jquery to be defered. Requires the "Deferred inline JavaScript Execution: Put a wrapper around inline JS so it runs from a setTimeout call" setting to be enalbed in order to be used. Not using a CDN in <a href="@url">jQuery Update</a> also means that defer works and does not require this experimental setting.', array(
+        '@url' => url('admin/config/development/jquery_update'),
+      )),
+      '#states' => array(
+        'disabled' => array(
+          ':input[name="advagg_mod_js_defer_inline_alter"]' => array('checked' => FALSE),
+        ),
+      ),
+    );
+  }
   // Outdated settings.
   $form['js']['old'] = array(
     '#type' => 'fieldset',
@@ -497,10 +521,8 @@ function advagg_mod_admin_settings_form_validate($form, &$form_state) {
  * Clear out the advagg cache bin when the save configuration button is pressed.
  */
 function advagg_mod_admin_settings_form_submit($form, &$form_state) {
-  $cache_bins = advagg_flush_caches();
-  foreach ($cache_bins as $bin) {
-    cache_clear_all('*', $bin, TRUE);
-  }
+  // Clear caches.
+  advagg_cache_clear_admin_submit();
 
   // If unified_multisite_dir has changed, flush menu router at the end of the
   // request.
@@ -509,6 +531,10 @@ function advagg_mod_admin_settings_form_submit($form, &$form_state) {
   if ($multisite_dir != $dir) {
     register_shutdown_function('advagg_get_root_files_dir', TRUE);
     register_shutdown_function('menu_rebuild');
+  }
+
+  if (empty($form_state['values']['advagg_mod_js_defer_inline_alter']) && !empty($form_state['values']['advagg_mod_js_defer_jquery'])) {
+    $form_state['values']['advagg_mod_js_defer_jquery'] = FALSE;
   }
 }
 

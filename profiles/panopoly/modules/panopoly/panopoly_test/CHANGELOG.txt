@@ -1,3 +1,20 @@
+Panopoly Test 7.x-1.27, 2015-09-02
+---------------------------
+- No changes since last release.
+
+Panopoly Test 7.x-1.26, 2015-08-19
+---------------------------
+- Errors on non-interactive install with drush site-install.
+- Error on install of Panopoly-based install profile: "Column 'module' cannot be
+  null" when profile starts with "e".
+- Update tablefield to version 2.4.
+
+Panopoly Test 7.x-1.25, 2015-07-08
+---------------------------
+- Add phing-based build system to make it easier for contributors to build,
+  install and run tests.
+- Allow video_widget.feature to run under Firefox.
+
 Panopoly Test 7.x-1.24, 2015-07-02
 ---------------------------
 - No changes since last release.
