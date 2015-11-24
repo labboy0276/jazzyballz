@@ -591,6 +591,7 @@ $conf['cache'] = 1;
 
 $conf['advagg_skip_404_check'] = TRUE;
 $conf['advagg_skip_far_future_check'] = TRUE;
+$conf['advagg_skip_gzip_check'] = TRUE;
 $conf['image_resize_filter_threshold'] = 1000;
 
 // APDQC Settings (for Digital Ocean)
