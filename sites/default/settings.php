@@ -586,10 +586,23 @@ $conf['fetcher_environment'] = 'prod';
 $conf['preprocess_css'] = 1;
 $conf['preprocess_js'] = 1;
 $conf['page_cache_maximum_age'] = 900;
+$conf['block_cache'] = 1;
 $conf['cache'] = 1;
 
 $conf['advagg_skip_404_check'] = TRUE;
+$conf['advagg_skip_far_future_check'] = TRUE;
 $conf['image_resize_filter_threshold'] = 1000;
+
+// APDQC Settings
+$databases['default']['default']['mysql_db_type'] = 'MariaDB';
+$databases['default']['default']['init_commands']['isolation'] = "SET SESSION tx_isolation='READ-COMMITTED'";
+$databases['default']['default']['init_commands']['lock_wait_timeout'] = "SET SESSION innodb_lock_wait_timeout = 20";
+$databases['default']['default']['init_commands']['wait_timeout'] = "SET SESSION wait_timeout = 600";
+$conf['cache_backends'][] = 'sites/all/modules/apdqc/apdqc.cache.inc';
+$conf['cache_default_class'] = 'APDQCache';
+$conf['lock_inc'] = 'sites/all/modules/apdqc/apdqc.lock.inc';
+$conf['session_inc'] = 'sites/all/modules/apdqc/apdqc.session.inc';
+$conf['apdqc_call_hook_on_clear'] = TRUE;
 
 if ($_SERVER['HTTP_HOST'] == 'jazzyballz.com') {
   header('HTTP/1.0 301 Moved Permanently');
