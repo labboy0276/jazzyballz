@@ -593,11 +593,12 @@ $conf['advagg_skip_404_check'] = TRUE;
 $conf['advagg_skip_far_future_check'] = TRUE;
 $conf['image_resize_filter_threshold'] = 1000;
 
-// APDQC Settings
-$databases['default']['default']['mysql_db_type'] = 'MariaDB';
+// APDQC Settings (for Digital Ocean)
+$databases['default']['default']['mysql_db_type'] = '';
 $databases['default']['default']['init_commands']['isolation'] = "SET SESSION tx_isolation='READ-COMMITTED'";
 $databases['default']['default']['init_commands']['lock_wait_timeout'] = "SET SESSION innodb_lock_wait_timeout = 20";
 $databases['default']['default']['init_commands']['wait_timeout'] = "SET SESSION wait_timeout = 600";
+$databases['default']['default']['unix_socket'] = '/var/run/mysqld/mysqld.sock';
 $conf['cache_backends'][] = 'sites/all/modules/apdqc/apdqc.cache.inc';
 $conf['cache_default_class'] = 'APDQCache';
 $conf['lock_inc'] = 'sites/all/modules/apdqc/apdqc.lock.inc';
