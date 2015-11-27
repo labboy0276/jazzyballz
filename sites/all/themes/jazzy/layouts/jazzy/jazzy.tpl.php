@@ -96,3 +96,15 @@
 
 
 
+<div class="modal fade hide" id="holidayModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-body">
+        <center><h1 class="blink">Black Weekend SPARKLE SALE</h1></center>
+        <center><h3>50% OFF ANY ORDER!!!!</h3></center>
+        <center><h5>Sale Ends 12/1/2015</h5></center>
+        <center><button type="button" class="modal-close btn btn-success" data-dismiss="modal">Check it Out</button></center>
+      </div>
+    </div>
+  </div>
+</div>
